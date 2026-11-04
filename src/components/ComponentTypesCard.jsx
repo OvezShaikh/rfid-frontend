@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent, Typography, Box, Divider } from '@mui/material';
-import { Pallet, Layers } from '@mui/icons-material';
+// Changed ViewColumn to Grid4x4 for a combined horizontal + vertical look
+import { Pallet, Layers, Grid4x4, ViewStream } from '@mui/icons-material';
 import lidImg from '../assets/lid.png';
 
 const TYPE_INFO = {
@@ -38,12 +39,31 @@ const TYPE_INFO = {
     longDescription:
       'The closing cover of the container. Tracked on its own so a missing lid is visible the moment a set comes back incomplete.',
   },
+  Insert: {
+    label: 'Insert',
+    // Grid4x4 shows both vertical and horizontal dividers
+    icon: <Grid4x4 sx={{ fontSize: 56 }} />,
+    color: '#E67E22',
+    bg: '#FEF3E7',
+    description: 'Internal divider (H + V)',
+    longDescription:
+      'Internal dividers used to separate and secure motorcycle or scooter parts within the container. Can be oriented horizontally or vertically. Tracked individually for each set.',
+  },
+  'Layer Pad': {
+    label: 'Layer Pad',
+    icon: <ViewStream sx={{ fontSize: 56 }} />,
+    color: '#8E44AD',
+    bg: '#F4EBF7',
+    description: 'Horizontal protective padding',
+    longDescription:
+      'Protective padding layers placed between components to prevent damage during transit. Each pad carries its own RFID tag.',
+  },
 };
 
-export default function ComponentTypesCard({ selectedType = 'Pallet', assets = [] }) {
+export default function ComponentTypesCard({ selectedType = 'Pallet', globalStats }) {
   const info = TYPE_INFO[selectedType] || TYPE_INFO.Pallet;
-  const count = assets.filter((a) => a.type === selectedType).length;
-  const total = assets.length || 1;
+   const count = globalStats?.assetBreakdown?.[selectedType] || 0;
+  const total = globalStats?.assetBreakdown?.total || 1;
   const pct = Math.round((count / total) * 100);
 
   return (
@@ -122,7 +142,7 @@ export default function ComponentTypesCard({ selectedType = 'Pallet', assets = [
           />
         </Box>
         <Typography sx={{ fontSize: 11, color: '#98A2B3', mt: 1 }}>
-          {pct}% of all {assets.length} registered components
+          {pct}% of all {globalStats?.assetBreakdown?.total || 0} registered components
         </Typography>
       </CardContent>
     </Card>

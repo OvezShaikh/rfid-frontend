@@ -1,53 +1,58 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Box, Typography, Card, CardContent, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Chip, Paper
-} from '@mui/material';
-import { getContainers } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Tabs, Tab } from '@mui/material';
+import AssemblyForm from '../components/AssemblyForm';
+import ContainerTracker from '../components/ContainerTracker';
+import { getAllContainers } from '../services/api';
 
 export default function Containers() {
+  const [tab, setTab] = useState(0);
   const [containers, setContainers] = useState([]);
-  useEffect(() => { getContainers().then(r => setContainers(r.data)).catch(console.error); }, []);
+  const [loading, setLoading] = useState(true);
 
-  const statusColor = (s) => ({
-    assembled: 'info', dispatched: 'success', received: 'success',
-    returned: 'default', incomplete: 'error',
-  }[s] || 'default');
+  const fetchContainers = async () => {
+    setLoading(true);
+    try {
+      const res = await getAllContainers();
+      setContainers(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchContainers();
+  }, []);
+
+  const handleAssembled = () => {
+    fetchContainers();
+    setTab(0); // Switch to tracker view after successful assembly
+  };
 
   return (
     <Box>
-      <Typography variant="h2" sx={{ mb: 0.5 }}>Containers</Typography>
-      <Typography variant="body2" sx={{ mb: 3 }}>Full set registry and dispatch status</Typography>
+      <Typography variant="h2" sx={{ mb: 0.5 }}>Set Management</Typography>
+      <Typography variant="body2" sx={{ mb: 3 }}>
+        Assemble new containers and track the exact components linked inside them.
+      </Typography>
 
-      <Card>
-        <CardContent>
-          <TableContainer component={Paper} elevation={0}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Set ID</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Dispatch Time</TableCell>
-                  <TableCell>Expected Return</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {containers.map(c => (
-                  <TableRow key={c.id} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{c.set_id}</TableCell>
-                    <TableCell><Chip label={c.status} size="small" color={statusColor(c.status)} /></TableCell>
-                    <TableCell>{c.dispatch_time ? new Date(c.dispatch_time).toLocaleString() : '—'}</TableCell>
-                    <TableCell>{c.expected_return ? new Date(c.expected_return).toLocaleString() : '—'}</TableCell>
-                  </TableRow>
-                ))}
-                {containers.length === 0 && (
-                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4, color: '#667085' }}>No containers yet</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
+      <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid #EAECF0' }}>
+        <Tab label="Active Sets (Tracking)" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        <Tab label="Assemble New Set" sx={{ textTransform: 'none', fontWeight: 600 }} />
+      </Tabs>
+
+      {tab === 0 && (
+        <ContainerTracker 
+          containers={containers} 
+          onRefresh={fetchContainers} 
+          loading={loading} 
+        />
+      )}
+
+      {tab === 1 && (
+        <AssemblyForm onAssembled={handleAssembled} />
+      )}
     </Box>
   );
 }

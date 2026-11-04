@@ -1,40 +1,77 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Grid, Typography, Slide } from '@mui/material';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AssetForm from '../components/AssetForm';
 import AssetList from '../components/AssetList';
 import ComponentTypesCard from '../components/ComponentTypesCard';
-import { getAssets } from '../services/api';
+// 1. FIXED: Imported getAsset
+import { getAssets, getAsset } from '../services/api';
 
 export default function Assets() {
   const [assets, setAssets] = useState([]);
   const [selectedType, setSelectedType] = useState('Pallet');
   const [editingAsset, setEditingAsset] = useState(null);
+  const [viewingAsset, setViewingAsset] = useState(null);
+  
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10); // <-- Added state for rows per page
 
   const location = useLocation();
+  const navigate = useNavigate();
 
   const fetchAssets = async () => {
-    const res = await getAssets();
-    setAssets(res.data);
-    return res.data;
+    try {
+      const res = await getAssets(page + 1, rowsPerPage); // <-- Use rowsPerPage
+      setAssets(res.data.data);
+      setTotalCount(res.data.total);
+    } catch (err) {
+      console.error("Failed to fetch assets", err);
+    }
   };
 
+  // Fetch whenever the page changes
   useEffect(() => {
-    fetchAssets().then((data) => {
-      if (location.state?.searchAssetId) {
-        const target = data.find((a) => a.id === location.state.searchAssetId);
-        if (target) handleEdit(target);
-      }
-    });
-  }, [location.state]);
+    fetchAssets();
+  }, [page]);
+
+  // Handle TopBar Search
+  useEffect(() => {
+    if (location.state?.viewAssetId) {
+      getAsset(location.state.viewAssetId)
+        .then((res) => {
+          setViewingAsset(res.data);
+          setSelectedType(res.data.type);
+          setEditingAsset(null); 
+        })
+        .catch((err) => {
+          console.error("Asset not found for search", err);
+        });
+
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
+
+  // 2. FIXED: Reset to Page 1 when a new asset is created
+  const handleRefreshAfterCreate = () => {
+    if (page !== 0) {
+      setPage(0); // This triggers the useEffect to fetch page 1
+    } else {
+      fetchAssets(); // If already on page 1, just refetch
+    }
+  };
 
   const handleEdit = (asset) => {
     setEditingAsset(asset);
+    setViewingAsset(null);
     setSelectedType(asset.type);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCancelEdit = () => setEditingAsset(null);
+  const handleCancel = () => {
+    setEditingAsset(null);
+    setViewingAsset(null);
+  };
 
   const isEdit = Boolean(editingAsset);
 
@@ -50,7 +87,6 @@ export default function Assets() {
       </Typography>
 
       {isEdit ? (
-        // ── EDIT MODE: full-width form only ──
         <Box sx={{ maxWidth: 900, mx: 'auto' }}>
           <Slide direction="down" in={isEdit} mountOnEnter unmountOnExit>
             <Box>
@@ -58,28 +94,40 @@ export default function Assets() {
                 onRefresh={fetchAssets}
                 onTypeChange={setSelectedType}
                 editing={editingAsset}
-                onCancelEdit={handleCancelEdit}
+                viewing={null}
+                onCancelEdit={handleCancel}
               />
             </Box>
           </Slide>
         </Box>
       ) : (
-        // ── CREATE MODE: normal 3-column layout ──
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 4 }}>
             <AssetForm
-              onRefresh={fetchAssets}
+              onRefresh={handleRefreshAfterCreate} // <-- Use the new reset logic
               onTypeChange={setSelectedType}
               editing={null}
-              onCancelEdit={handleCancelEdit}
+              viewing={viewingAsset}
+              onCancelEdit={handleCancel}
+              onEditClick={() => handleEdit(viewingAsset)} 
             />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <ComponentTypesCard selectedType={selectedType} assets={assets} />
+             {/* 3. FIXED: Pass totalCount so the percentages are correct */}
+            <ComponentTypesCard 
+              selectedType={selectedType} 
+              assets={assets} 
+              totalGlobalAssets={totalCount} 
+            />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
             <AssetList
               assets={assets}
+              totalCount={totalCount}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={setPage}
+              onRowsPerPageChange={setRowsPerPage}
               onRefresh={fetchAssets}
               onEdit={handleEdit}
             />

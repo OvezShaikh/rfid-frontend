@@ -13,3 +13,5 @@ export default function Admin() {
     </Box>
   );
 }
+
+//database view for admin users to see all tables and their contents

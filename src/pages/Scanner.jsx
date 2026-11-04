@@ -3,7 +3,7 @@ import {
   Box, Typography, Grid, Card, CardContent, List, ListItem, ListItemText, Divider
 } from '@mui/material';
 import { Sensors, CheckCircle, Warning, Inventory2, Wifi } from '@mui/icons-material';
-import HandheldScanner from '../components/HandheldScanner';
+import RFIDReader from '../components/RFIDReader';
 
 export default function Scanner() {
   return (
@@ -16,7 +16,7 @@ export default function Scanner() {
       <Grid container spacing={2}>
         {/* Left — Live scanner simulator */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <HandheldScanner />
+          <RFIDReader />
         </Grid>
 
         {/* Right — Instructions / help card */}
