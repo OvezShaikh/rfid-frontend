@@ -15,7 +15,7 @@ const theme = createTheme({
   },
   shape: { borderRadius: 10 },
   typography: {
-    fontFamily: '"Inter","Roboto","Helvetica","Arial",sans-serif',
+    fontFamily: '"DM Sans","Inter","Roboto","Helvetica","Arial",sans-serif',
     h1: { fontSize: 30, fontWeight: 700, letterSpacing: -0.5 },
     h2: { fontSize: 22, fontWeight: 700 },
     h3: { fontSize: 18, fontWeight: 600 },

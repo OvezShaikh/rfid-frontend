@@ -5,9 +5,10 @@ import {
 } from '@mui/material';
 import {
   Dashboard, Inventory2, ViewInAr, Warning, QrCodeScanner, Storage, 
-  Logout, History as HistoryIcon, ReceiptLong, People
+  Logout, History as HistoryIcon, ReceiptLong, People, Assessment,
+  Business, Router, PrecisionManufacturing, Email,
 } from '@mui/icons-material';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import ulogo from '../assets/ulogo.png';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,10 +24,11 @@ function SidebarInner({ collapsed, onClose }) {
 
   // Build the navigation menu based on the user's role
   const navItems = [
-    { label: 'Overview', path: '/', icon: <Dashboard fontSize="small" /> },
+    { label: 'Overview', path: '/dashboard', icon: <Dashboard fontSize="small" /> },
     { label: 'Assets', path: '/assets', icon: <Inventory2 fontSize="small" /> },
     { label: 'Containers', path: '/containers', icon: <ViewInAr fontSize="small" /> },
     { label: 'Scanner', path: '/scanner', icon: <QrCodeScanner fontSize="small" /> },
+    { label: 'Reports', path: '/reports', icon: <Assessment fontSize="small" /> }
   ];
 
   // Only Admin (1, 2) see Exceptions, Challans, and History
@@ -34,12 +36,16 @@ function SidebarInner({ collapsed, onClose }) {
     navItems.push({ label: 'Exceptions', path: '/exceptions', icon: <Warning fontSize="small" /> });
     navItems.push({ label: 'Challans', path: '/challans', icon: <ReceiptLong fontSize="small" /> });
     navItems.push({ label: 'History', path: '/history', icon: <HistoryIcon fontSize="small" /> });
+    navItems.push({ label: 'Warehouse Sandbox', path: '/rfid-warehouse-sandbox', icon: <PrecisionManufacturing fontSize="small" /> });
   }
 
   // Only Super Admin (1) sees the Database
   if (roleId === 1) {
+    navItems.push({ label: 'Clients', path: '/clients', icon: <Business fontSize="small" /> });
+    navItems.push({ label: 'Devices', path: '/devices', icon: <Router fontSize="small" /> });
     navItems.push({ label: 'Database', path: '/admin', icon: <Storage fontSize="small" /> });
     navItems.push({ label: 'Users', path: '/users', icon: <People fontSize="small" /> });
+    navItems.push({ label: 'Email Settings', path: '/email-settings', icon: <Email fontSize="small" /> });
   }
 
   const handleLogout = () => {
@@ -71,7 +77,7 @@ function SidebarInner({ collapsed, onClose }) {
         <ListItemIcon>{item.icon}</ListItemIcon>
         {!collapsed && (
           <ListItemText 
-            primaryTypographyProps={{ fontSize: 13, fontWeight: active ? 600 : 500, noWrap: true }}
+            primaryTypographyProps={{ fontSize: 13, fontWeight: active ? 600 : 500, whiteSpace: 'nowrap' }}
           >
             {item.label}
           </ListItemText>
@@ -94,11 +100,34 @@ function SidebarInner({ collapsed, onClose }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Toolbar sx={{ px: collapsed ? 1 : 2, justifyContent: collapsed ? 'center' : 'flex-start', minHeight: '64px !important' }}>
-        <Avatar variant="rounded" src={ulogo} sx={{ width: 32, height: 32, borderRadius: 2, mr: collapsed ? 0 : 1.5, bgcolor: '#fff' }}>U</Avatar>
+        <Avatar variant="rounded" src={ulogo} sx={{ width: 32, height: 32, borderRadius: 2, mr: collapsed ? 0 : 1, bgcolor: '#fff' }}>U</Avatar>
         {!collapsed && (
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, whiteSpace: 'nowrap' }}>Unostar RFID</Typography>
-            <Typography sx={{ fontSize: 11, color: '#667085', whiteSpace: 'nowrap' }}>Packaging Pool</Typography>
+            <Typography
+              sx={{
+                fontFamily: '"DM Sans", sans-serif',
+                fontWeight: 700,
+                fontSize: 15, // Slightly increased to make the brand name pop
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+                letterSpacing: '-0.5px' // DM Sans looks great with slight negative tracking for headers
+              }}
+            >
+              UnoTrace
+            </Typography>
+
+            <Typography
+              sx={{
+                fontFamily: '"DM Sans", sans-serif',
+                fontWeight: 400,
+                fontSize: 11.5,
+                color: '#667085',
+                whiteSpace: 'nowrap',
+                letterSpacing: '0.1px'
+              }}
+            >
+              Trust & Accuracy in Tracking
+            </Typography>
           </Box>
         )}
       </Toolbar>

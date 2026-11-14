@@ -13,16 +13,18 @@ export default function Scanner() {
         Live reads from the mounted UHF RFID reader at the dispatch gate
       </Typography>
 
-      <Grid container spacing={2}>
+      {/* ✅ Added alignItems="stretch" to force equal row height */}
+      <Grid container spacing={2} alignItems="stretch">
         {/* Left — Live scanner simulator */}
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', height: { xs: 'calc(100dvh - 90px)', md: 'calc(100vh - 160px)' }, minHeight: { xs: 'calc(100dvh - 90px)', md: '600px' }, }}>
           <RFIDReader />
         </Grid>
 
         {/* Right — Instructions / help card */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+          {/* ✅ Changed height: '100%' to flex: 1 to perfectly fill the stretched grid item */}
+          <Card sx={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ flex: 1 }}>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
                 How the reader works
               </Typography>

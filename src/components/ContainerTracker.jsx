@@ -31,7 +31,7 @@ export default function ContainerTracker({ containers, onRefresh, loading }) {
   const [deleting, setDeleting] = useState(false);
 
   const { user } = useAuth();
-const canDisassemble = user?.role_id === 1 || user?.role_id === 2;
+  const canDisassemble = user?.role_id === 1 || user?.role_id === 2;
 
   const handleViewDetails = async (setId) => {
     setDetailsOpen(true);
@@ -95,7 +95,7 @@ const canDisassemble = user?.role_id === 1 || user?.role_id === 2;
                 <Visibility fontSize="small" sx={{ color: '#5B5BD6' }} />
               </IconButton>
             </Tooltip>
-            {row.status === 'assembled' && (
+            {row.status === 'assembled' && canDisassemble && (
               <Tooltip title="Disassemble Set">
                 <IconButton size="small" onClick={() => setDeleteTarget(row.set_id)}>
                   <DeleteOutlined fontSize="small" sx={{ color: '#F04438' }} />
@@ -157,7 +157,8 @@ const canDisassemble = user?.role_id === 1 || user?.role_id === 2;
           <DialogContentText sx={{ color: '#344054' }}>
             Are you sure you want to disassemble set <strong>{deleteTarget}</strong>?
             <br /><br />
-            This will unlock all linked components (Pallet, Sleeve, Lid, etc.) and set their status back to <strong>available</strong>. The set ID will be permanently deleted.
+            This will unlock all linked components (Pallet, Sleeve, Lid, etc.) and set their status back to <strong>available</strong>.
+            The set will be marked as <strong>disassembled</strong> so you keep its history for tracking.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>

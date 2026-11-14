@@ -82,7 +82,6 @@ export default function TopBar({ onMenuClick, onToggleCollapse, collapsed }) {
             {collapsed ? <MenuOpen /> : <MenuClosed />}
           </IconButton>
         </Tooltip>
-        <Typography sx={{ fontWeight: 700, fontSize: 16, mr: 2, display: { xs: 'none', md: 'block' } }}>Dashboard</Typography>
 
         <Box sx={{ position: 'relative', flex: 1, maxWidth: { xs: '100%', sm: 400 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, border: '1px solid #EAECF0', borderRadius: 2, px: 1.5, py: 0.5, bgcolor: '#FFFFFF' }}>
