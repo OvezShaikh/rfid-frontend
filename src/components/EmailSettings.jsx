@@ -1,25 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, CardContent, Typography, Box, TextField, Button, Chip,
-  Grid, Alert, Divider, CircularProgress
+  Grid, Alert, Divider, CircularProgress, Stack
 } from '@mui/material';
 import { Email, Send, Save, Warning, CheckCircle } from '@mui/icons-material';
-import { getEmailSettings, saveEmailSettings, sendReportEmail } from '../services/api'; // Assume these exist in your api.js
+import { getEmailSettings, saveEmailSettings, sendReportEmail } from '../services/api';
 
 export default function EmailSettings() {
   const [recipients, setRecipients] = useState([]);
   const [newEmail, setNewEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: string }
-  
-  // Mocking the meta data shown in your image
+  const [status, setStatus] = useState(null);
   const [metaData, setMetaData] = useState({
     nextSend: 'Tomorrow at 06:00 (Asia/Kolkata)',
     lastSent: '23 Oct 2026, 09:08',
     lastProblem: 'None'
   });
 
-  // Fetch saved emails on load
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -33,11 +30,8 @@ export default function EmailSettings() {
     fetchSettings();
   }, []);
 
-  // Add an email to the list
   const handleAddEmail = () => {
     const email = newEmail.trim().toLowerCase();
-    
-    // Basic Regex validation
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setStatus({ type: 'error', message: 'Please enter a valid email address.' });
       return;
@@ -46,18 +40,15 @@ export default function EmailSettings() {
       setStatus({ type: 'error', message: 'Email already in the list.' });
       return;
     }
-
     setRecipients([...recipients, email]);
     setNewEmail('');
     setStatus(null);
   };
 
-  // Remove an email
   const handleDelete = (emailToDelete) => {
     setRecipients(recipients.filter((email) => email !== emailToDelete));
   };
 
-  // Save settings to DB
   const handleSave = async () => {
     setLoading(true);
     try {
@@ -76,12 +67,10 @@ export default function EmailSettings() {
       setStatus({ type: 'error', message: 'Add at least one recipient first.' });
       return;
     }
-    
     setLoading(true);
     try {
       await sendReportEmail({ recipients });
       setStatus({ type: 'success', message: `Test email sent to ${recipients.length} recipient(s)!` });
-      // Update last sent time locally
       setMetaData({ ...metaData, lastSent: new Date().toLocaleString() });
     } catch (err) {
       setStatus({ type: 'error', message: 'Failed to send email. Check backend logs.' });
@@ -92,21 +81,41 @@ export default function EmailSettings() {
   };
 
   return (
-    <Card sx={{ maxWidth: 800, m: 2, boxShadow: 3, borderRadius: 3 }}>
-      <CardContent sx={{ p: 4 }}>
-        
+    <Card sx={{
+      maxWidth: 800,
+      width: '100%',
+      m: { xs: 1, sm: 2 },
+      boxShadow: 3,
+      borderRadius: 3
+    }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+
         {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
           <Email color="action" />
-          <Typography variant="h6" fontWeight="bold">Daily report by email</Typography>
-        </Box>
+          <Typography
+            variant="h6"
+            fontWeight="bold"
+            sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, lineHeight: 1.3 }}
+          >
+            Daily report by email
+          </Typography>
+        </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Dock TAT: every shipment of the last 24 hours, how long each took, and what is still open. Excel attached.
         </Typography>
 
-        {/* Recipients Input */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography variant="body2" fontWeight="bold" sx={{ minWidth: 60 }}>Send to</Typography>
+        {/* Recipients label + chips */}
+        <Box sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: { xs: 1, sm: 2 },
+          mb: 2
+        }}>
+          <Typography variant="body2" fontWeight="bold" sx={{ minWidth: 60 }}>
+            Send to
+          </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, flex: 1 }}>
             {recipients.map((email) => (
               <Chip
@@ -116,72 +125,97 @@ export default function EmailSettings() {
                 color="primary"
                 variant="outlined"
                 size="small"
+                sx={{ maxWidth: '100%' }}
               />
             ))}
           </Box>
         </Box>
 
-        {/* Add Input */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3, ml: 8 }}>
+        {/* Add input */}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
           <TextField
             size="small"
             placeholder="name@company.com"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleAddEmail()}
-            sx={{ flex: 1, maxWidth: 400 }}
+            sx={{ flex: 1, maxWidth: { sm: 400 } }}
+            fullWidth
           />
-          <Button variant="outlined" onClick={handleAddEmail}>+ Add</Button>
-        </Box>
+          <Button
+            variant="outlined"
+            onClick={handleAddEmail}
+            sx={{ whiteSpace: 'nowrap', alignSelf: { xs: 'stretch', sm: 'auto' } }}
+          >
+            + Add
+          </Button>
+        </Stack>
 
-        {/* Status Alerts */}
+        {/* Status */}
         {status && (
-          <Alert severity={status.type} sx={{ mb: 3, ml: 8 }} onClose={() => setStatus(null)}>
+          <Alert severity={status.type} sx={{ mb: 3 }} onClose={() => setStatus(null)}>
             {status.message}
           </Alert>
         )}
 
-        {/* Action Buttons */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 4, ml: 8 }}>
-          <Button 
-            variant="contained" 
-            color="inherit" 
+        {/* Action buttons */}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{ mb: 4 }}
+        >
+          <Button
+            variant="contained"
+            color="inherit"
             startIcon={loading ? <CircularProgress size={16} /> : <Save />}
             onClick={handleSave}
             disabled={loading}
-            sx={{ bgcolor: '#e0e0e0', color: '#000', '&:hover': { bgcolor: '#d5d5d5' } }}
+            sx={{
+              bgcolor: '#e0e0e0', color: '#000',
+              '&:hover': { bgcolor: '#d5d5d5' },
+              width: { xs: '100%', sm: 'auto' }
+            }}
           >
             Save
           </Button>
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             startIcon={<Send />}
             onClick={handleSendNow}
             disabled={loading}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             Send now
           </Button>
-          <Button variant="text" startIcon={<Warning />}>
+          <Button
+            variant="text"
+            startIcon={<Warning />}
+            sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-start', sm: 'center' } }}
+          >
             Last 24 hours in Excel
           </Button>
-        </Box>
+        </Stack>
 
         <Divider sx={{ mb: 2 }} />
 
-        {/* Metadata Footer */}
-        <Grid container spacing={2} sx={{ ml: 7 }}>
-          <Grid item xs={4}>
+        {/* Metadata footer */}
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={4}>
             <Typography variant="caption" color="text.secondary">NEXT</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CheckCircle sx={{ fontSize: 16, color: 'success.main' }} />
               <Typography variant="body2">{metaData.nextSend}</Typography>
             </Box>
           </Grid>
-          <Grid item xs={4}>
+          <Grid item xs={12} sm={4}>
             <Typography variant="caption" color="text.secondary">LAST SENT</Typography>
             <Typography variant="body2">{metaData.lastSent}</Typography>
           </Grid>
-          <Grid item xs={4}>
+          <Grid item xs={12} sm={4}>
             <Typography variant="caption" color="text.secondary">LAST PROBLEM</Typography>
             <Typography variant="body2">{metaData.lastProblem}</Typography>
           </Grid>
