@@ -19,9 +19,16 @@ import {
   getDevices 
 } from '../services/api';
 
-const RECIPES = {
-  Motorcycle: { 'Pallet': 1, 'Lid': 1, 'Layer Pad': 2, 'Insert': 2 },
-  Scooter:    { 'Pallet': 1, 'Lid': 1, 'Layer Pad': 3, 'Insert': 3 }
+const LAYER_PADS_PER = { Motorcycle: 2, Scooter: 3 };
+
+// Inserts decide the vehicle: 2 = Motorcycle, 3 = Scooter
+const splitInserts = (n) => {
+  const sizes = [];
+  while (n >= 2) {
+    if (n % 2 === 0) { sizes.push(2); n -= 2; }
+    else             { sizes.push(3); n -= 3; }
+  }
+  return sizes;
 };
 
 export default function RFIDReader() {
@@ -211,47 +218,79 @@ export default function RFIDReader() {
   };
 
   // ✅ 5. REAL-TIME RECIPE TRACKER
-  const recipeStatus = useMemo(() => {
-    const looseScanned = scannedItems.filter(i => !i.isSet);
-    if (looseScanned.length === 0) return null;
+    const recipeStatus = useMemo(() => {
+    if (scannedItems.length === 0) return null;
 
-    const counts = {};
-    looseScanned.forEach(i => {
-      const type = i.data.type;
-      counts[type] = (counts[type] || 0) + 1;
-    });
+    // ── Existing (already assembled) sets that were scanned ──
+    const existingSets = scannedItems
+      .filter(i => i.isSet)
+      .map(i => ({
+        id: i.id,
+        vehicle: i.data.vehicle_type || '—',
+        parts:
+          (i.tags || []).filter(t => !String(t).startsWith('OFFLINE_SET_')).length ||
+          i.data.component_count || 0,
+      }));
 
-    let best = null;
-    let bestScore = -1;
+    // ── Loose parts ──
+    const loose = scannedItems.filter(i => !i.isSet);
+    const pool = {};
+    loose.forEach(i => { pool[i.data.type] = (pool[i.data.type] || 0) + 1; });
 
-    for (const [vType, recipe] of Object.entries(RECIPES)) {
-      const totalReq = Object.values(recipe).reduce((a, b) => a + b, 0);
+    const takeFrom = (type, max) => {
+      const got = Math.min(pool[type] || 0, max);
+      pool[type] = (pool[type] || 0) - got;
+      return got;
+    };
 
-      let setsComplete = Infinity;
-      for (const [type, req] of Object.entries(recipe)) {
-        setsComplete = Math.min(setsComplete, Math.floor((counts[type] || 0) / req));
+    // Every container: exactly 1 Pallet, 1 Sleeve, 1 Lid. Inserts and Layer Pads depend on the vehicle.
+    const buildContainer = (vehicle, insertsNeeded, isDraft = false) => {
+      const need = {
+        Pallet: 1,
+        Sleeve: 1,
+        Lid: 1,
+        'Layer Pad': LAYER_PADS_PER[vehicle],
+        Insert: insertsNeeded,
+      };
+      const parts = {};
+      const missing = [];
+      for (const [type, n] of Object.entries(need)) {
+        // a draft only previews progress; it does not use up parts
+        const have = isDraft ? Math.min(pool[type] || 0, n) : takeFrom(type, n);
+        parts[type] = { have, need: n };
+        if (have < n) missing.push(n - have > 1 ? `${type} x${n - have}` : type);
       }
-      if (!isFinite(setsComplete)) setsComplete = 0;
+      return { vehicle, parts, missing, complete: missing.length === 0, isDraft };
+    };
 
-      const nextParts = {};
-      let nextHave = 0;
-      for (const [type, req] of Object.entries(recipe)) {
-        const used = setsComplete * req;
-        const left = Math.max(0, (counts[type] || 0) - used);
-        const have = Math.min(left, req);
-        nextParts[type] = { have, need: req };
-        nextHave += have;
-      }
-      const nextPercent = totalReq === 0 ? 0 : Math.round((nextHave / totalReq) * 100);
-      const score = setsComplete * 1000 + nextPercent;
-
-      if (score > bestScore) {
-        bestScore = score;
-        best = { type: vType, recipe, setsComplete, nextPercent, nextParts, totalReq, counts };
-      }
+    // Only Dispatch builds new containers from loose parts (same rule as the backend)
+    const canForm = action === 'dispatch';
+    let containers = [];
+    if (canForm && loose.length > 0) {
+      const sizes = splitInserts(pool['Insert'] || 0);
+      containers = sizes.map(s => buildContainer(s === 3 ? 'Scooter' : 'Motorcycle', s));
+      if (containers.length === 0) containers.push(buildContainer('Motorcycle', 2, true));
     }
-    return best;
-  }, [scannedItems]);
+
+    const leftover = Object.entries(pool).filter(([, n]) => n > 0);
+    const realContainers = containers.filter(c => !c.isDraft);
+
+    let haveTotal = 0, needTotal = 0;
+    containers.forEach(c => Object.values(c.parts).forEach(p => { haveTotal += p.have; needTotal += p.need; }));
+
+    return {
+      canForm,
+      existingSets,
+      containers,
+      leftover,
+      looseCount: loose.length,
+      newCount: realContainers.length,
+      totalSets: existingSets.length + realContainers.length,
+      completeCount: realContainers.filter(c => c.complete).length,
+      incompleteCount: realContainers.filter(c => !c.complete).length,
+      percent: containers.length ? Math.round((haveTotal / needTotal) * 100) : null,
+    };
+  }, [scannedItems, action]);
 
   const handleProcess = async () => {
     if (scannedItems.length === 0) return;
@@ -291,7 +330,8 @@ export default function RFIDReader() {
               scanned_rfid_tags: allTags, 
               destination_location_id: deviceInfo.location_id, 
               vehicle_no: 'NA', 
-              driver_name: 'NA' 
+              driver_name: 'NA',
+              action: 'return'
             };
         actionType = scanMode === 'gate' ? 'RETURN' : 'UNIFIED';
       }
@@ -517,72 +557,160 @@ export default function RFIDReader() {
           </Box>
         </Box>
 
-        {/* Recipe progress */}
+        {/* Scan summary: sets scanned + containers formed */}
         {recipeStatus && (
-          <Box 
-          role="status" aria-live="polite"
-          sx={{
-            mb: { xs: 1, sm: 2 },
-            p: { xs: 0.75, sm: 1.5 },
-            bgcolor: recipeStatus.setsComplete > 0 ? '#ECFDF3' : '#F9FAFB',
-            border: '1px solid',
-            borderColor: recipeStatus.setsComplete > 0 ? '#ABEFC6' : '#EAECF0',
-            borderRadius: 2,
-            minWidth: 0,
-            flexShrink: 0,
-          }}>
-            <Box sx={{
-              display: 'flex', flexDirection: 'row',
-              alignItems: 'center', justifyContent: 'space-between',
-              gap: 0.5, mb: 0.5,
-            }}>
+          <Box
+            role="status" aria-live="polite"
+            sx={{
+              mb: { xs: 1, sm: 2 },
+              p: { xs: 0.75, sm: 1.5 },
+              bgcolor: '#F9FAFB',
+              border: '1px solid #EAECF0',
+              borderRadius: 2,
+              minWidth: 0,
+              flexShrink: 0,
+              maxHeight: { xs: 220, sm: 300 },
+              overflowY: 'auto',
+            }}
+          >
+            {/* Header: total sets */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
               <Typography sx={{
-                fontSize: { xs: 10, sm: 12 },
-                fontWeight: 700,
-                color: recipeStatus.setsComplete > 0 ? '#027A48' : '#475467',
+                fontSize: { xs: 11, sm: 13 }, fontWeight: 700,
+                color: recipeStatus.totalSets > 0 ? '#027A48' : '#475467',
                 display: 'flex', alignItems: 'center', gap: 0.5,
-                minWidth: 0, whiteSpace: 'nowrap',
-                overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
-                <Build sx={{ fontSize: { xs: 14, sm: 16 } }} />
-                {recipeStatus.setsComplete > 0
-                  ? `${recipeStatus.setsComplete} ${recipeStatus.type} Set${recipeStatus.setsComplete > 1 ? 's' : ''} Ready`
-                  : `Building ${recipeStatus.type}`}
+                <LocalShipping sx={{ fontSize: { xs: 15, sm: 18 } }} />
+                {recipeStatus.totalSets} set{recipeStatus.totalSets === 1 ? '' : 's'} in this scan
               </Typography>
-              <Typography sx={{
-                fontSize: { xs: 9, sm: 11 },
-                fontWeight: 600, color: '#667085', flexShrink: 0,
-              }}>
-                {recipeStatus.nextPercent}%
-              </Typography>
-            </Box>
-
-            <LinearProgress
-              variant="determinate"
-              value={recipeStatus.nextPercent}
-               aria-label={`${recipeStatus.nextPercent}% of next ${recipeStatus.type} set complete`}
-              sx={{
-                height: { xs: 4, sm: 6 },
-                borderRadius: 3,
-                bgcolor: '#EAECF0',
-                '& .MuiLinearProgress-bar': {
-                  bgcolor: recipeStatus.setsComplete > 0 ? '#12B76A' : '#5B5BD6',
-                  transition: 'transform 0.3s ease',
-                },
-              }}
-            />
-
-            {/* Parts breakdown — desktop only */}
-            <Box sx={{ display: 'flex', gap: 1, mt: 0.75, flexWrap: 'wrap' }}>
-              {Object.entries(recipeStatus.nextParts).map(([type, { have, need }]) => (
-                <Typography key={type} sx={{
-                  fontSize: 9, color: have >= need ? '#027A48' : '#667085',
-                  fontWeight: have >= need ? 700 : 400,
-                }}>
-                  {type}: {have}/{need}
+              {recipeStatus.percent !== null && (
+                <Typography sx={{ fontSize: { xs: 9, sm: 11 }, fontWeight: 600, color: '#667085' }}>
+                  {recipeStatus.percent}% parts
                 </Typography>
-              ))}
+              )}
             </Box>
+            <Typography sx={{ fontSize: { xs: 9, sm: 11 }, color: '#667085', mb: 0.75 }}>
+              {recipeStatus.existingSets.length} existing · {recipeStatus.newCount} new
+              {recipeStatus.newCount > 0 && ` (${recipeStatus.completeCount} complete, ${recipeStatus.incompleteCount} incomplete)`}
+            </Typography>
+
+            {recipeStatus.percent !== null && (
+              <LinearProgress
+                variant="determinate"
+                value={recipeStatus.percent}
+                aria-label={`${recipeStatus.percent}% of expected parts scanned`}
+                sx={{
+                  height: { xs: 4, sm: 6 }, borderRadius: 3, bgcolor: '#EAECF0', mb: 1,
+                  '& .MuiLinearProgress-bar': {
+                    bgcolor: recipeStatus.incompleteCount === 0 && recipeStatus.newCount > 0 ? '#12B76A' : '#5B5BD6',
+                    transition: 'transform 0.3s ease',
+                  },
+                }}
+              />
+            )}
+
+            {/* Existing sets that were scanned */}
+            {recipeStatus.existingSets.length > 0 && (
+              <Box sx={{ mb: 1 }}>
+                <Typography sx={{
+                  fontSize: 10, fontWeight: 700, color: '#475467',
+                  textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5,
+                }}>
+                  Scanned sets ({recipeStatus.existingSets.length})
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {recipeStatus.existingSets.map(s => (
+                    <Chip
+                      key={s.id}
+                      size="small"
+                      label={`${s.id} · ${s.vehicle}${s.parts ? ` · ${s.parts} parts` : ''}`}
+                      sx={{ height: 22, fontSize: 10, fontWeight: 600, bgcolor: '#E0EAFF', color: '#1D4ED8' }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {/* New containers formed from loose parts (Dispatch only) */}
+            {recipeStatus.containers.length > 0 && (
+              <Typography sx={{
+                fontSize: 10, fontWeight: 700, color: '#475467',
+                textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5,
+              }}>
+                {recipeStatus.containers[0].isDraft
+                  ? 'Building first container'
+                  : `New containers from loose parts (${recipeStatus.newCount})`}
+              </Typography>
+            )}
+            {recipeStatus.containers.map((c, idx) => (
+              <Box
+                key={idx}
+                sx={{
+                  mb: 0.75, p: 1, borderRadius: 1.5, border: '1px solid',
+                  borderColor: c.complete ? '#ABEFC6' : '#FEDF89',
+                  bgcolor: c.complete ? '#ECFDF3' : '#FFFAEB',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                  <Typography sx={{ fontSize: { xs: 11, sm: 12 }, fontWeight: 700, color: '#101828' }}>
+                    {c.isDraft ? 'Draft' : `New container ${idx + 1}`} · {c.vehicle}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    icon={c.complete
+                      ? <CheckCircle sx={{ fontSize: '14px !important' }} />
+                      : <Warning sx={{ fontSize: '14px !important' }} />}
+                    label={c.complete ? 'Complete' : 'Incomplete'}
+                    sx={{
+                      height: 20, fontSize: 10, fontWeight: 700,
+                      bgcolor: c.complete ? '#D1FADF' : '#FEF0C7',
+                      color: c.complete ? '#027A48' : '#B54708',
+                      '& .MuiChip-icon': { color: 'inherit' },
+                    }}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                  {Object.entries(c.parts).map(([type, { have, need }]) => (
+                    <Typography key={type} sx={{
+                      fontSize: 10,
+                      color: have >= need ? '#027A48' : '#B54708',
+                      fontWeight: have >= need ? 700 : 500,
+                    }}>
+                      {type}: {have}/{need}
+                    </Typography>
+                  ))}
+                </Box>
+
+                {!c.complete && (
+                  <Typography sx={{ fontSize: 10, color: '#B54708', mt: 0.25 }}>
+                    Missing: {c.missing.join(', ')}
+                  </Typography>
+                )}
+              </Box>
+            ))}
+
+            {/* Loose parts not in any container */}
+            {recipeStatus.leftover.length > 0 && (
+              <Typography sx={{ fontSize: 10, color: '#667085', mt: 0.5 }}>
+                Unassigned loose parts: {recipeStatus.leftover.map(([t, n]) => `${t} x${n}`).join(', ')}
+              </Typography>
+            )}
+
+            {/* Explain what will happen on Receive / Return */}
+            {!recipeStatus.canForm && recipeStatus.looseCount > 0 && (
+              <Typography sx={{ fontSize: 10, color: '#B54708', mt: 0.5 }}>
+                {scanMode === 'gate'
+                  ? `Gate ${action} processes sets only. ${recipeStatus.looseCount} loose part(s) will be ignored.`
+                  : `Loose parts are only marked available at this location. No container is built on ${action}.`}
+              </Typography>
+            )}
+
+            {recipeStatus.newCount > 0 && (
+              <Typography sx={{ fontSize: 9, color: '#98A2B3', mt: 0.5 }}>
+                New container IDs are assigned when you press Confirm.
+              </Typography>
+            )}
           </Box>
         )}
 

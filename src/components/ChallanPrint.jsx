@@ -17,25 +17,30 @@ export default function ChallanPrint({ data }) {
     <>
       {/* 1. CSS PRINT RULES to force exact 1 page and hide the rest of the app */}
       <style>
-        {`
-          @media print {
-            @page { margin: 0; size: 120mm 185mm; }
-            body * { visibility: hidden; }
-            .print-section, .print-section * { visibility: visible; }
-            .print-section {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 120mm;
-              height: 185mm;
-              margin: 0;
-              padding: 0;
-              page-break-after: avoid;
-              page-break-inside: avoid;
-            }
-          }
-        `}
-      </style>
+  {`
+    /* Preview on screen */
+    .print-section {
+      height: 250mm !important;
+    }
+
+    @media print {
+      @page { margin: 0; size: 120mm 250mm; }
+      body * { visibility: hidden; }
+      .print-section, .print-section * { visibility: visible; }
+      .print-section {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 120mm;
+        height: 250mm !important;
+        margin: 0;
+        padding: 0;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  `}
+</style>
 
       {/* 2. Main Challan Wrapper */}
       <Box 
@@ -160,7 +165,7 @@ export default function ChallanPrint({ data }) {
           ))}
           
           {/* Empty filler area that expands automatically */}
-          <Box sx={{ flex: 1 }} />
+          {/* <Box sx={{ flex: 1 }} /> */}
         </Box>
 
         {/* Footer */}
