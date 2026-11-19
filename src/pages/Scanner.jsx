@@ -16,7 +16,7 @@ export default function Scanner() {
       {/* ✅ Added alignItems="stretch" to force equal row height */}
       <Grid container spacing={2} alignItems="stretch">
         {/* Left — Live scanner simulator */}
-        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', height: { xs: 'calc(100dvh - 90px)', md: 'calc(100vh - 160px)' }, minHeight: { xs: 'calc(100dvh - 90px)', md: '600px' }, }}>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', height: { xs: 'calc(100dvh - 90px)', md: 'calc(100vh - 160px)' }, minHeight: { xs: 'calc(100dvh - 40px)', md: '600px' }, }}>
           <RFIDReader />
         </Grid>
 
