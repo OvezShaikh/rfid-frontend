@@ -19,6 +19,7 @@
     "d3-geo": "^3.1.2",
     "dayjs": "^1.11.23",
     "dexie": "^4.4.7",
+    "gsap": "^3.15.1",
     "leaflet": "^1.9.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -27,6 +28,7 @@
     "react-simple-maps": "^5.0.5",
     "recharts": "^3.10.1",
     "sweetalert2": "^11.26.25",
+    "three": "^0.187.0",
     "vite-plugin-pwa": "^2.0.0",
     "xlsx": "^0.18.5"
   },

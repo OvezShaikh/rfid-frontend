@@ -4,7 +4,7 @@ import {
   Card, CardContent, Box, Typography, List, ListItem, ListItemText,
   Chip, Divider, Button, Alert, CircularProgress, Autocomplete,
   TextField, Grid, ToggleButton, ToggleButtonGroup, LinearProgress,
-  IconButton
+  IconButton, FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 import { queueScan } from '../services/offlineDB';
 import {
@@ -16,7 +16,7 @@ import {
 import {
   getAllContainers, getAssets, getContainerDetails,
   unifiedScan, bulkReceive, bulkReturn, getDeviceById,
-  getDevices 
+  getDevices, getLocations, 
 } from '../services/api';
 
 const LAYER_PADS_PER = { Motorcycle: 2, Scooter: 3 };
@@ -48,6 +48,13 @@ export default function RFIDReader() {
   const [vehicleNo, setVehicleNo] = useState('MH-14-AB-1234');
   const [driverName, setDriverName] = useState('Ramesh Kumar');
   const [deviceInfo, setDeviceInfo] = useState(null);
+  const [locationsList, setLocationsList] = useState([]);
+  const [selectedDestination, setSelectedDestination] = useState('');
+
+  // Fetch locations on mount
+  useEffect(() => {
+    getLocations().then(res => setLocationsList(res.data));
+  }, []);
 
   // ✅ 1. Device Info with AUTO-DETECTION + Offline Cache
   useEffect(() => {
@@ -292,7 +299,7 @@ export default function RFIDReader() {
     };
   }, [scannedItems, action]);
 
-  const handleProcess = async () => {
+    const handleProcess = async () => {
     if (scannedItems.length === 0) return;
     if (!deviceInfo) return setScanResult({ success: false, message: 'Device not registered.' });
 
@@ -304,14 +311,23 @@ export default function RFIDReader() {
       let payload, actionType;
 
       if (action === 'dispatch') {
+        // ✅ Only require destination for Gate mode
+        if (!selectedDestination) {
+          setLoading(false);
+          return setScanResult({ success: false, message: 'Please select a destination location.' });
+        }
+
         payload = {
           scanned_rfid_tags: allTags,
-          destination_location_id: deviceInfo.location_id,
+          source_location_id: deviceInfo.location_id, 
+          destination_location_id: selectedDestination, 
           vehicle_no: scanMode === 'gate' ? vehicleNo : 'NA',
           driver_name: scanMode === 'gate' ? driverName : 'NA',
           action: 'dispatch',
+          operator_id: 1 // ✅ Added so backend doesn't fail
         };
         actionType = 'DISPATCH';
+        
       } else if (action === 'receive') {
         payload = scanMode === 'gate' 
           ? { scanned_rfid_tags: allTags } 
@@ -320,21 +336,44 @@ export default function RFIDReader() {
               destination_location_id: deviceInfo.location_id, 
               vehicle_no: 'NA', 
               driver_name: 'NA',
-              action: 'receive'
+              action: 'receive',
+              operator_id: 1
             };
         actionType = scanMode === 'gate' ? 'RECEIVE' : 'UNIFIED';
+        
       } else if (action === 'return') {
+        if (!selectedDestination) {
+          setLoading(false);
+          return setScanResult({ success: false, message: 'Please select a return location.' });
+        }
         payload = scanMode === 'gate' 
-          ? { scanned_rfid_tags: allTags, return_location_id: deviceInfo.location_id }
+          ? { 
+              scanned_rfid_tags: allTags, 
+              source_location_id: deviceInfo.location_id,
+              destination_location_id: selectedDestination, // ✅ User selected (Supa or Papl)
+              vehicle_no: vehicleNo,
+              driver_name: driverName,
+              action: 'return',
+              operator_id: 1
+            }
           : { 
               scanned_rfid_tags: allTags, 
-              destination_location_id: deviceInfo.location_id, 
+              source_location_id: deviceInfo.location_id,
+              destination_location_id: selectedDestination, 
               vehicle_no: 'NA', 
               driver_name: 'NA',
-              action: 'return'
+              action: 'return',
+              operator_id: 1
             };
         actionType = scanMode === 'gate' ? 'RETURN' : 'UNIFIED';
       }
+
+      // ✅ Safety check before hitting API
+      if (!payload) {
+        throw new Error("Could not build payload. Invalid action selected.");
+      }
+
+      console.log("🚀 Sending Payload:", payload);
 
       if (!navigator.onLine) {
         await queueScan(actionType, payload);
@@ -345,17 +384,23 @@ export default function RFIDReader() {
 
         setScanResult({ success: true, isOffline: true, message: 'Offline. Scan saved and will sync automatically.' });
         setScannedItems([]);
+        setLoading(false); // ✅ Reset loading
         return;
       }
 
       let res;
-      if (action === 'dispatch') res = await unifiedScan(payload);
-      else if (action === 'receive') res = scanMode === 'gate' ? await bulkReceive(payload) : await unifiedScan(payload);
-      else if (action === 'return') res = scanMode === 'gate' ? await bulkReturn(payload) : await unifiedScan(payload);
+      if (action === 'dispatch') {
+        res = await unifiedScan(payload);
+      } else if (action === 'receive') {
+        res = scanMode === 'gate' ? await bulkReceive(payload) : await unifiedScan(payload);
+      } else if (action === 'return') {
+        res = scanMode === 'gate' ? await bulkReturn(payload) : await unifiedScan(payload);
+      }
 
       setScanResult({ success: true, message: res.data.message, challan_no: res.data.challan_no });
       setScannedItems([]);
 
+      // Refresh lists
       const refreshedSets = await getAllContainers();
       let filtered = [];
       if (action === 'dispatch') filtered = refreshedSets.data.filter(c => c.status === 'assembled');
@@ -371,7 +416,8 @@ export default function RFIDReader() {
       });
 
     } catch (err) {
-      setScanResult({ success: false, message: err.response?.data?.error || 'Server error' });
+      console.error("❌ Scan Error:", err);
+      setScanResult({ success: false, message: err.response?.data?.error || err.message || 'Server error' });
     } finally {
       setLoading(false);
     }
@@ -485,7 +531,7 @@ export default function RFIDReader() {
           {/* Action */}
           <ToggleButtonGroup
             color="primary" value={action} exclusive
-            onChange={(e, v) => { if (v) setAction(v); }}
+            onChange={(e, v) => { if (v) setAction(v); setSelectedDestination(''); }}
             fullWidth sx={{ mb: { xs: 1.5, sm: 3 } }}
           >
             <ToggleButton
@@ -526,9 +572,9 @@ export default function RFIDReader() {
             </ToggleButton>
           </ToggleButtonGroup>
 
-          {/* Vehicle + Driver */}
-          {action === 'dispatch' && scanMode === 'gate' && (
-            <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 3 } }}>
+          {/* Vehicle + Driver (Only for Gate) */}
+          {(action === 'dispatch' || action === 'return') && scanMode === 'gate' && (
+            <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 1 } }}>
               <Grid item size={{ xs: 6 }}>
                 <TextField
                   fullWidth size="small" label="Vehicle No."
@@ -540,6 +586,28 @@ export default function RFIDReader() {
                   fullWidth size="small" label="Driver Name"
                   value={driverName} onChange={(e) => setDriverName(e.target.value)}
                 />
+              </Grid>
+            </Grid>
+          )}
+
+          {/* Destination Dropdown (For BOTH Gate and Handheld) */}
+          {(action === 'dispatch' || action === 'return') && (
+            <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mb: { xs: 1.5, sm: 3 }, mt: 0 }}>
+              <Grid item size={{ xs: 12 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>{action === 'return' ? 'Return To Location' : 'Destination Location'}</InputLabel>
+                  <Select
+                    value={selectedDestination}
+                    label={action === 'return' ? 'Return To Location' : 'Destination Location'}
+                    onChange={(e) => setSelectedDestination(e.target.value)}
+                  >
+                    {locationsList
+                      .filter(l => l.id !== deviceInfo?.location_id) // Don't send to yourself
+                      .map(l => (
+                        <MenuItem key={l.id} value={l.id}>{l.location_name}</MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
           )}

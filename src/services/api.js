@@ -27,6 +27,8 @@ export const getUsers = () => api.get('/users');
 export const createUser = (data) => api.post('/users', data);
 export const updateUser = (id, data) => api.put(`/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/users/${id}`);
+export const updateOwnProfile = (data) => api.put('/users/profile', data);
+export const updateOwnPassword = (data) => api.put('/users/password', data);
 
 // ── Assets ──
 export const getAssets = (page = 1, limit = 10, search = '', type = '', status = '', availableOnly = false) => 
@@ -83,6 +85,10 @@ export const getExceptionRateReport = (startDate, endDate) =>
   api.get('/reports/exception-rate', { params: { startDate, endDate } });
 
 export const getLocationStockReport = () => api.get('/reports/location-stock');
+
+export const getStuckInTransitReport = () => api.get(`/reports/stuck-in-transit?t=${Date.now()}`);
+export const getDailyMovementReport = (start, end) => api.get(`/reports/daily-movement?startDate=${start}&endDate=${end}&t=${Date.now()}`);
+export const getAuditExceptionsReport = (start, end) => api.get(`/reports/audit-exceptions?startDate=${start}&endDate=${end}&t=${Date.now()}`);
 
 // ── WhatsApp Simulation ──
 export const simulateWhatsApp = (message) => api.post('/whatsapp/simulate', { message });

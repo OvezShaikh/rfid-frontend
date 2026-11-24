@@ -352,7 +352,7 @@ export default function Overview() {
                   }}
                 >
                   <Avatar sx={{ width: 40, height: 40, bgcolor: e.status === 'open' ? '#FEF3F2' : '#ECFDF3', color: e.status === 'open' ? '#F04438' : '#12B76A' }}>
-                    <Warning fontSize="small" />
+                    {e.status === 'open' ? <Warning fontSize="small" /> : <CheckCircle fontSize="small" />}
                   </Avatar>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#101828' }}>

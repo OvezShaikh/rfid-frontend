@@ -34,6 +34,15 @@ const PARTNERS = [
   'Lear Corporation', 'Yazaki', 'Gestamp', 'Forvia', 'Vodafone',
   'Freudenberg', 'Force MTU', 'Wilo Mather and Platt',
 ];
+// Service lines shown as chips on the hero card. Edit to match your real offering.
+const SERVICES = [
+  'Transportation',
+  'Warehousing',
+  'Returnable Packaging',
+  'Line-side Delivery',
+  'Inventory Visibility',
+  'RFID Tracking',
+];
 
 /* ------------------------------------------------------------------ */
 /*  Math helpers                                                       */
@@ -343,15 +352,14 @@ export default function Landing() {
   const [auto, setAuto] = useState(true);
   const [evt, setEvt] = useState(0);
 
-  // Estimates (assumptions, adjust to real figures when available):
+  // Estimates (assumptions, replace with real figures before going live):
   //  Scans/day = truck gate events 300 x 6 = 1,800
   //            + pallet tag reads 300 trips x 20 pallets x 4 checkpoints = 24,000
   //            + hub/warehouse reads 13 hubs x ~1,200 = 15,600   => ~41,400, shown as 40K+
-  //  Trips since 2017 = avg fleet ~200 x 40 trips/month x 12 x 9 yrs ~ 8.6 lakh, shown as 8,00,000+
+  const hubs = useCountUp(CITIES.length);
   const trucks = useCountUp(300);
   const scansDay = useCountUp(40, 2400);
   const accuracy = useCountUp(99.99, 2600, 2);
-  const trips = useCountUp(800000, 2800);
 
   // Auto-continue to login, cancelled as soon as the visitor interacts
   useEffect(() => {
@@ -445,12 +453,22 @@ export default function Landing() {
               color: 'rgba(255,255,255,0.75)', maxWidth: 420, lineHeight: 1.55,
             }}
           >
-            Unostar runs a 300-truck fleet across India. UnoTrace brings
-            real-time RFID visibility to every load.
+            Unostar's end-to-end logistics platform. UnoTrace gives you
+            real-time visibility across transport, warehousing and
+            returnable packaging.
           </Typography>
+
+          {/* Service chips */}
+          <Box className="card-layer chips" sx={{ transform: 'translateZ(50px)' }}>
+            {SERVICES.map((s) => <span key={s}>{s}</span>)}
+          </Box>
 
           {/* Stats */}
           <Box className="card-layer stats" sx={{ transform: 'translateZ(60px)' }}>
+            <Box>
+              <b>{hubs}</b>
+              <span>hubs across India</span>
+            </Box>
             <Box>
               <b>{trucks}+</b>
               <span>trucks in fleet</span>
@@ -463,17 +481,13 @@ export default function Landing() {
               <b>{accuracy}%</b>
               <span>read accuracy</span>
             </Box>
-            <Box>
-              <b>{trips}+</b>
-              <span>trips since 2017</span>
-            </Box>
           </Box>
 
           <Typography
             className="card-layer"
             sx={{ transform: 'translateZ(40px)', mt: 2, fontSize: 13, color: 'rgba(255,255,255,0.55)' }}
           >
-            Serving industry since 2017 from {CITIES.length} hubs. ISO 9001:2015 certified.
+            Integrated logistics since 2017. ISO 9001:2015 certified.
           </Typography>
 
           <Box className="card-layer" sx={{ transform: 'translateZ(70px)', mt: 3 }}>
@@ -567,6 +581,11 @@ export default function Landing() {
             padding:10px clamp(12px,2vw,24px); border-radius:10px;
             background:#fff; box-shadow:0 10px 28px rgba(0,0,0,.45); }
 
+          .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:clamp(14px,2.4vh,22px); }
+          .chips span { font-size:12px; font-weight:500; color:#e0f2fe;
+            padding:5px 11px; border-radius:999px;
+            background:rgba(56,189,248,.1); border:1px solid rgba(125,211,252,.25); }
+
           .stats { display:grid; grid-template-columns:repeat(2, auto); justify-content:start; gap:18px clamp(24px,3vw,44px); margin-top:clamp(18px,3vh,28px); }
           .stats > div { display:flex; flex-direction:column; }
           .stats b { font-size:clamp(20px,2.2vw,26px); font-weight:800; color:#fff; letter-spacing:-.5px;
@@ -617,6 +636,7 @@ export default function Landing() {
           @media (max-height:560px) {
             .hero-card { padding:18px 26px; }
             .logo { max-height:52px; padding:6px 12px; }
+            .chips { margin-top:10px; }
             .stats { gap:10px 32px; margin-top:14px; }
             .loader-bar { margin-top:14px; }
           }

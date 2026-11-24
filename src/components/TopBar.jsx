@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
   AppBar, Toolbar, Typography, IconButton, Box, InputBase,
-  Badge, Avatar, Button, Tooltip, Paper, List, ListItemButton,
-  ListItemText, Chip, CircularProgress
+  Avatar, Button, Tooltip, Paper, List, ListItemButton,
+  ListItemText, Chip, CircularProgress, Menu, MenuItem, Divider, ListItemIcon
 } from '@mui/material';
 import {
   Menu as MenuIcon, MenuOpen, Menu as MenuClosed, Search,
-  NotificationsNone, Add, Inventory2, Layers, Grid4x4, ViewStream
+  Add, Inventory2, Layers, Grid4x4, ViewStream,
+  Person, Lock, Logout
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { getAssets, getAllContainers } from '../services/api';
 import lidImg from '../assets/lid.png';
+import UserProfileModal from './UserProfileModal';
+import { useAuth } from '../context/AuthContext';
 
 const TYPE_ICON = {
   Pallet: <Inventory2 fontSize="small" sx={{ color: '#F5B041' }} />,
@@ -24,10 +27,18 @@ const TYPE_ICON = {
 
 export default function TopBar({ onMenuClick, onToggleCollapse, collapsed }) {
   const navigate = useNavigate();
+  const { user, logout, updateUserInContext } = useAuth(); // ✅ Added updateUserInContext
+  
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+
+  // User Menu State
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  // ✅ REMOVED the conflicting useEffect that was reading from localStorage
 
   useEffect(() => {
     if (!query.trim()) {
@@ -41,11 +52,9 @@ export default function TopBar({ onMenuClick, onToggleCollapse, collapsed }) {
 
     const timer = setTimeout(async () => {
       try {
-        // 1. Search Assets via API (Searches the whole DB, not just page 1)
         const assetRes = await getAssets(1, 5, query.trim()); 
         const assetMatches = assetRes.data.data.map(a => ({ kind: 'asset', ...a }));
 
-        // 2. Search Containers
         const containerRes = await getAllContainers();
         const containerMatches = (containerRes.data || [])
           .filter(c => c.set_id?.toLowerCase().includes(query.toLowerCase()))
@@ -71,6 +80,23 @@ export default function TopBar({ onMenuClick, onToggleCollapse, collapsed }) {
     } else {
       navigate('/containers', { state: { searchSetId: item.set_id, timestamp: Date.now() } });
     }
+  };
+
+  const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  // ✅ Fixed: Update the Context instead of local state
+  const handleUserUpdate = (updatedUser) => {
+    if (updateUserInContext) {
+      updateUserInContext(updatedUser); // Update the global context state
+    }
+    // Optionally update localStorage for persistence across page reloads
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   return (
@@ -119,7 +145,53 @@ export default function TopBar({ onMenuClick, onToggleCollapse, collapsed }) {
 
         <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} />
         <Button size="small" variant="contained" startIcon={<Add />} onClick={() => navigate('/assets')} sx={{ display: { xs: 'none', md: 'inline-flex' } }}>New</Button>
-        <Avatar sx={{ width: 32, height: 32, bgcolor: '#5B5BD6', fontSize: 13, ml: 0.5 }}>TU</Avatar>
+        
+        {/* Dynamic Avatar */}
+        <Tooltip title="Account settings">
+          <IconButton onClick={handleMenuClick} sx={{ p: 0, ml: 0.5 }}>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: '#5B5BD6', fontSize: 13, textTransform: 'uppercase' }}>
+              {user?.username ? user.username.charAt(0) : 'U'}
+            </Avatar>
+          </IconButton>
+        </Tooltip>
+
+        {/* User Dropdown Menu */}
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          PaperProps={{ elevation: 3, sx: { mt: 1, minWidth: 200, borderRadius: 2, border: '1px solid #EAECF0' } }}
+        >
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 14, textTransform: 'capitalize' }}>{user?.username || 'User'}</Typography>
+            <Typography sx={{ fontSize: 12, color: '#667085' }}>{user?.role_name || 'Standard User'}</Typography>
+          </Box>
+          <Divider />
+          
+          <MenuItem onClick={() => { handleMenuClose(); setProfileModalOpen(true); }} sx={{ fontSize: 13, py: 1 }}>
+            <ListItemIcon><Person fontSize="small" /></ListItemIcon> My Profile
+          </MenuItem>
+          
+          <MenuItem onClick={() => { handleMenuClose(); setProfileModalOpen(true); }} sx={{ fontSize: 13, py: 1 }}>
+            <ListItemIcon><Lock fontSize="small" /></ListItemIcon> Change Password
+          </MenuItem>
+          
+          <Divider />
+          
+          <MenuItem onClick={handleLogout} sx={{ fontSize: 13, py: 1, color: '#F04438' }}>
+            <ListItemIcon><Logout fontSize="small" sx={{ color: '#F04438' }} /></ListItemIcon> Logout
+          </MenuItem>
+        </Menu>
+
+        {/* Profile Edit Modal */}
+        <UserProfileModal 
+          open={profileModalOpen} 
+          onClose={() => setProfileModalOpen(false)} 
+          user={user}
+          onUpdateSuccess={handleUserUpdate}
+        />
       </Toolbar>
     </AppBar>
   );

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Grid, Card, CardContent, Button, CircularProgress,
-  TextField, MenuItem, Select, FormControl, Chip, Divider, Tooltip
+  TextField, MenuItem, Select, FormControl, Chip, Divider, Tooltip,
 } from '@mui/material';
 import { 
   FileDownload, Timer, Place, Warning, FilterAlt, Refresh, 
-  TrendingUp, Inventory2 
+  TrendingUp, Inventory2, CheckCircleOutlined,
 } from '@mui/icons-material';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, 
@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
-import { getTurnaroundReport, getLocationStockReport, getExceptionRateReport } from '../services/api';
+import { getTurnaroundReport, getLocationStockReport, getExceptionRateReport, getStuckInTransitReport, getDailyMovementReport, getAuditExceptionsReport } from '../services/api';
 
 // ── PREMIUM CUSTOM TOOLTIP ──
 const CustomTooltip = ({ active, payload, label, suffix = '' }) => {
@@ -67,6 +67,9 @@ export default function Reports() {
   const [turnaround, setTurnaround] = useState({ data: [], averageHours: 0 });
   const [locationStock, setLocationStock] = useState({ components: [], containers: [] });
   const [exceptionRate, setExceptionRate] = useState([]);
+  const [stuckTransit, setStuckTransit] = useState([]);
+  const [auditExceptions, setAuditExceptions] = useState([]);
+  const [dailyMovement, setDailyMovement] = useState([]);
 
   const [dateRange, setDateRange] = useState('30days');
   const [customStart, setCustomStart] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
@@ -75,14 +78,20 @@ export default function Reports() {
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
-      const [tRes, lRes, eRes] = await Promise.all([
+      const [tRes, lRes, eRes, sRes, dRes, aRes] = await Promise.all([
         getTurnaroundReport(),
         getLocationStockReport(),
-        getExceptionRateReport()
+        getExceptionRateReport(),
+        getStuckInTransitReport(),
+        getDailyMovementReport(customStart, customEnd),
+        getAuditExceptionsReport(customStart, customEnd)
       ]);
-      setTurnaround(tRes.data);
-      setLocationStock(lRes.data);
-      setExceptionRate(eRes.data);
+      setTurnaround(tRes.data || { data: [], averageHours: 0 });
+      setLocationStock(lRes.data || { components: [], containers: [] });
+      setExceptionRate(Array.isArray(eRes.data) ? eRes.data : []);
+      setStuckTransit(Array.isArray(sRes.data) ? sRes.data : []);
+      setDailyMovement(Array.isArray(dRes.data) ? dRes.data : []);
+      setAuditExceptions(Array.isArray(aRes.data) ? aRes.data : []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -378,6 +387,280 @@ export default function Reports() {
                         <RechartsTooltip content={<CustomTooltip suffix="exceptions" />} />
                         <Area type="monotone" dataKey="exception_count" stroke="#F04438" strokeWidth={3} fill="url(#colorExceptions)" name="Exceptions" activeDot={{ r: 6, strokeWidth: 3, stroke: '#FFF' }} />
                       </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 4. Stuck in Transit */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={cardSx}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+                  <Box>
+                    <Typography variant="h5" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Warning sx={{ color: '#B54708' }} /> Stuck in Transit
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Trucks dispatched over 24 hours ago that haven't been received.
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {stuckTransit.length === 0 ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 150, color: '#12B76A' }}>
+                    <Typography>No trucks delayed. Great!</Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ maxHeight: 250, overflowY: 'auto' }}>
+                    {stuckTransit.map((truck) => (
+                      <Box key={truck.challan_no} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, mb: 1, bgcolor: '#FFFAEB', border: '1px solid #FEDF89', borderRadius: 2 }}>
+                        <Box>
+                          <Typography sx={{ fontWeight: 700, fontSize: 14 }}>{truck.challan_no} ({truck.vehicle_no})</Typography>
+                          <Typography sx={{ fontSize: 12, color: '#667085' }}>To: {truck.destination}</Typography>
+                        </Box>
+                        <Chip label={`${truck.hours_stuck}h Delayed`} size="small" sx={{ bgcolor: '#FEF0C7', color: '#B54708', fontWeight: 700 }} />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          
+          {/* 5. Overrides & Audits */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={cardSx}>
+              <CardContent sx={{ p: 3 }}>
+
+                {/* Header */}
+                <Box sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mb: 3
+                }}>
+                  <Box>
+                    <Typography variant="h5" sx={{
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      <Warning sx={{ color: '#F04438' }} />
+                      Manual Overrides
+                    </Typography>
+
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Recent supervisor overrides and incomplete dispatches.
+                    </Typography>
+                  </Box>
+
+                  <Chip
+                    label={`${auditExceptions?.length || 0} Events`}
+                    size="small"
+                    sx={{
+                      fontWeight: 700,
+                      bgcolor: '#FEF3F2',
+                      color: '#B42318',
+                      borderRadius: 2
+                    }}
+                  />
+                </Box>
+
+                {/* Empty State */}
+                {!Array.isArray(auditExceptions) || auditExceptions.length === 0 ? (
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 190,
+                    border: '1px dashed #D0D5DD',
+                    borderRadius: 2,
+                    bgcolor: '#FCFCFD',
+                    gap: 1
+                  }}>
+                    <CheckCircleOutlined sx={{ fontSize: 36, color: '#12B76A' }} />
+
+                    <Typography sx={{ fontWeight: 600, color: '#344054' }}>
+                      No audit events found
+                    </Typography>
+
+                    <Typography variant="caption" color="text.secondary">
+                      Supervisor overrides and exceptions will appear here.
+                    </Typography>
+                  </Box>
+                ) : (
+
+                  /* Activity List */
+                  <Box sx={{
+                    maxHeight: 310,
+                    overflowY: 'auto',
+                    pr: 0.5,
+                    '&::-webkit-scrollbar': { width: 5 },
+                    '&::-webkit-scrollbar-thumb': {
+                      backgroundColor: '#D0D5DD',
+                      borderRadius: 5
+                    }
+                  }}>
+
+                    {auditExceptions.slice(0, 10).map((log, idx) => {
+
+                      const action = String(log?.action_type || '').toUpperCase();
+
+                      const isIncomplete = action.includes('INCOMPLETE');
+
+                      return (
+                        <Box
+                          key={log?.id || `${log?.created_at}-${idx}`}
+                          sx={{
+                            display: 'flex',
+                            gap: 1.5,
+                            p: 1.75,
+                            mb: 1.25,
+                            border: '1px solid #EAECF0',
+                            borderRadius: 2,
+                            bgcolor: '#FFFFFF',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              borderColor: '#D0D5DD',
+                              bgcolor: '#FCFCFD'
+                            }
+                          }}
+                        >
+
+                          {/* Event Icon */}
+                          <Box sx={{
+                            width: 36,
+                            height: 36,
+                            minWidth: 36,
+                            borderRadius: 2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            bgcolor: isIncomplete ? '#FEF3F2' : '#FFFAEB'
+                          }}>
+                            <Warning
+                              sx={{
+                                fontSize: 19,
+                                color: isIncomplete ? '#D92D20' : '#DC6803'
+                              }}
+                            />
+                          </Box>
+
+                          {/* Event Details */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+
+                            <Box sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              gap: 1,
+                              flexWrap: 'wrap'
+                            }}>
+                              <Typography sx={{
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: '#101828',
+                                overflowWrap: 'anywhere'
+                              }}>
+                                {log?.operator_name || 'System'}
+                              </Typography>
+
+                              <Typography sx={{
+                                fontSize: 11,
+                                color: '#667085',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {log?.created_at
+                                  ? dayjs(log.created_at).format('DD MMM, hh:mm A')
+                                  : '—'}
+                              </Typography>
+                            </Box>
+
+                            <Typography sx={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: '#475467',
+                              mt: 0.5,
+                              mb: 0.75
+                            }}>
+                              {(log?.action_type || 'AUDIT EVENT')
+                                .replace(/_/g, ' ')}
+                            </Typography>
+
+                            <Typography sx={{
+                              fontSize: 12,
+                              color: '#667085',
+                              lineHeight: 1.6,
+                              overflowWrap: 'anywhere'
+                            }}>
+                              {log?.details || 'No additional details available'}
+                            </Typography>
+
+                            {log?.challan_no && (
+                              <Box sx={{ mt: 1 }}>
+                                <Chip
+                                  size="small"
+                                  label={`Reference: ${log.challan_no}`}
+                                  variant="outlined"
+                                  sx={{
+                                    height: 23,
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    color: '#175CD3',
+                                    borderColor: '#B2DDFF',
+                                    bgcolor: '#EFF8FF'
+                                  }}
+                                />
+                              </Box>
+                            )}
+
+                          </Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+
+              </CardContent>
+            </Card>
+          </Grid>
+
+
+          {/* 6. Daily Movement */}
+          <Grid size={{ xs: 12 }}>
+            <Card sx={cardSx}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+                  <Box>
+                    <Typography variant="h5" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TrendingUp sx={{ color: '#175CD3' }} /> Daily Movement
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Total tags scanned per day, grouped by action (Dispatch, Receive, Return).
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ height: 280 }}>
+                  {dailyMovement.length === 0 ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#98A2B3' }}>
+                      <Typography>No movement data available for this period.</Typography>
+                    </Box>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={dailyMovement} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAECF0" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#667085' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 12, fill: '#667085' }} axisLine={false} tickLine={false} />
+                        <RechartsTooltip content={<CustomTooltip suffix="tags" />} cursor={{ fill: '#F9FAFB' }} />
+                        <Bar dataKey="unique_tags" fill="#175CD3" radius={[6, 6, 0, 0]} name="Tags Scanned" barSize={40} />
+                      </BarChart>
                     </ResponsiveContainer>
                   )}
                 </Box>

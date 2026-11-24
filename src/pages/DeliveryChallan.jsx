@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Card, CardContent, Grid, TextField, Button, MenuItem,
-  Select, InputLabel, FormControl, Table, TableBody, TableCell, TableHead,
+  Select, InputLabel, FormControl, TableContainer, Table, TableBody, TableCell, TableHead,
   TableRow, Chip, Dialog, DialogTitle, DialogContent, DialogActions, IconButton
 } from '@mui/material';
 import { Add, Print, LocalShipping } from '@mui/icons-material';
@@ -55,6 +55,13 @@ export default function DeliveryChallan() {
     const res = await getChallanById(id);
     setPrintData(res.data);
   };
+
+  const challanStatusColor = (status) => ({
+    pending: 'warning',
+    dispatched: 'info',
+    delivered: 'success',
+    cancelled: 'error',
+  }[status] ?? 'default');
 
   return (
     <Box>
@@ -133,7 +140,8 @@ export default function DeliveryChallan() {
 
       {/* Past Challans Table */}
       <Card>
-        <Table>
+        <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <Table sx={{ minWidth: 700 }}>
           <TableHead sx={{ bgcolor: '#F9FAFB' }}>
             <TableRow>
               <TableCell>Challan No</TableCell>
@@ -151,7 +159,7 @@ export default function DeliveryChallan() {
                 <TableCell>{new Date(c.challan_date).toLocaleDateString()}</TableCell>
                 <TableCell>{c.from_name} → {c.to_name_loc}</TableCell>
                 <TableCell>{c.total_sets} Sets</TableCell>
-                <TableCell><Chip label={c.status} size="small" color="success" /></TableCell>
+                <TableCell><Chip label={c.status} size="small" color={challanStatusColor(c.status)} /></TableCell>
                 <TableCell align="right">
                   <IconButton onClick={() => handleViewPrint(c.id)}><Print /></IconButton>
                 </TableCell>
@@ -159,6 +167,7 @@ export default function DeliveryChallan() {
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       </Card>
 
       {/* Print Dialog */}
