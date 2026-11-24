@@ -77,7 +77,7 @@ const AssetList = ({ assets, totalCount, page, rowsPerPage, onPageChange, onRows
                     </Box>
 
                     <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0, alignItems: 'center' }}>
-                      <Chip label={a.status} size="small" color={a.status === 'available' ? 'success' : a.status === 'in_use' ? 'info' : a.status === 'missing' ? 'error' : 'default'} sx={{ fontSize: 10, height: 20 }} />
+                      <Chip label={a.status} size="small" color={a.status === 'available' ? 'success' : a.status === 'in_use' ? 'info' : a.status === 'missing' ? 'error' : a.status === 'under_repair' ? 'warning' : 'default'} sx={{ fontSize: 10, height: 20 }} />
                       
                       {/* ONLY SHOW EDIT IF ALLOWED */}
                       {canEdit && (

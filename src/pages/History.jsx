@@ -108,7 +108,8 @@ export default function History() {
         const groupedHistory = resHistory.data.reduce((acc, curr) => {
           // Group by action_type and created_at (timestamp). 
           // This ensures all logs from a single bulk action are grouped together.
-          const key = `${curr.action_type}-${curr.created_at}`;
+          const timeKey = new Date(curr.created_at).toISOString().slice(0, 19); // Groups to the exact second
+          const key = `${curr.action_type}-${timeKey}`;
           
           if (!acc[key]) {
             acc[key] = {
