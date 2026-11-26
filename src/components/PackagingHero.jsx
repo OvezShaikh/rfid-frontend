@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import * as THREE from 'three';
 import gsap from 'gsap';
+import TwoWheelerOutlinedIcon from '@mui/icons-material/TwoWheelerOutlined';
+import MopedOutlinedIcon from '@mui/icons-material/MopedOutlined';
 
 const CAM_D = 11;
 const HALF_H = Math.tan((15 * Math.PI) / 180) * CAM_D;
@@ -27,21 +29,10 @@ const HOMES = [
   [0.1, 0.88, -2, 'ins', 0.4, 1], [-0.12, -0.88, -2, 'sep', 0.5],
 ];
 
-const BikeIcon = () => (
-  <svg viewBox="0 0 120 60" width="92" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="22" cy="42" r="13" /><circle cx="98" cy="42" r="13" />
-    <path d="M22 42l18-20h22l14 20M62 22l-6-10h-10M76 42l12-24h-8M40 22l20 20" />
-  </svg>
-);
-const ScooterIcon = () => (
-  <svg viewBox="0 0 120 60" width="92" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="24" cy="44" r="10" /><circle cx="98" cy="44" r="10" />
-    <path d="M24 44h14l6-14h22v14h-8M66 44h6M92 44l-8-30h-8M84 14h10M44 30c-8-2-14 2-16 8" />
-  </svg>
-);
+
 const CARDS = [
-  { id: 'motorcycle', label: 'Motorcycle', sub: 'Sleeve 1045 mm', Icon: BikeIcon },
-  { id: 'scooter', label: 'Scooter', sub: 'Sleeve 1610 mm', Icon: ScooterIcon },
+  { id: 'motorcycle', label: 'Motorcycle', sub: 'Sleeve 1045 mm', Icon: TwoWheelerOutlinedIcon },
+  { id: 'scooter',    label: 'Scooter',    sub: 'Sleeve 1610 mm', Icon: MopedOutlinedIcon },
 ];
 
 export default function PackagingHero({
@@ -296,7 +287,11 @@ export default function PackagingHero({
                   '&:hover svg': { transform: 'rotate(-6deg) scale(1.1)' },
                 }}
               >
-                <Icon />
+                <Icon sx={{
+                  fontSize: compact ? 40 : 46,
+                  color: flavor === id ? ACCENT : 'rgba(255,255,255,.92)',
+                  transition: 'color .3s ease',
+                }} />
                 <Typography sx={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, mt: 0.5 }}>{label}</Typography>
                 {!compact && <Typography sx={{ fontFamily: FONT, fontSize: 11, color: 'rgba(255,255,255,.7)' }}>{sub}</Typography>}
               </Box>
